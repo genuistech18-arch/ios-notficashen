@@ -23,7 +23,6 @@ workflows:
             echo "FLUTTER_BUILD_NAME=1.0.0" >> ios/Flutter/Generated.xcconfig
             echo "FLUTTER_BUILD_NUMBER=15" >> ios/Flutter/Generated.xcconfig
           fi
-          cat ios/Flutter/Generated.xcconfig
 
       - name: Step 2 - Create iOS 15.0 Podfile and fix Deployment Target
         script: |
@@ -32,50 +31,50 @@ workflows:
           /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 15.0" ios/Flutter/AppFrameworkInfo.plist || true
 
           cat > ios/Podfile << 'EOF'
-platform :ios, '15.0'
-ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+          platform :ios, '15.0'
+          ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-project 'Runner', {
-  'Debug' => :debug,
-  'Profile' => :release,
-  'Release' => :release,
-}
+          project 'Runner', {
+            'Debug' => :debug,
+            'Profile' => :release,
+            'Release' => :release,
+          }
 
-def flutter_root
-  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
-  unless File.exist?(generated_xcode_build_settings_path)
-    raise "#{generated_xcode_build_settings_path} must exist. Make sure flutter pub get is executed first."
-  end
-  File.foreach(generated_xcode_build_settings_path) do |line|
-    matches = line.match(/FLUTTER_ROOT\=(.*)/)
-    return matches[1].strip if matches
-  end
-  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}."
-end
+          def flutter_root
+            generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+            unless File.exist?(generated_xcode_build_settings_path)
+              raise "#{generated_xcode_build_settings_path} must exist. Make sure flutter pub get is executed first."
+            end
+            File.foreach(generated_xcode_build_settings_path) do |line|
+              matches = line.match(/FLUTTER_ROOT\=(.*)/)
+              return matches[1].strip if matches
+            end
+            raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}."
+          end
 
-require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+          require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
-flutter_ios_podfile_setup
+          flutter_ios_podfile_setup
 
-target 'Runner' do
-  use_frameworks!
-  use_modular_headers!
+          target 'Runner' do
+            use_frameworks!
+            use_modular_headers!
 
-  flutter_install_all_ios_pods File.dirname(File.expand_path(__FILE__))
-  target 'RunnerTests' do
-    inherit! :search_paths
-  end
-end
+            flutter_install_all_ios_pods File.dirname(File.expand_path(__FILE__))
+            target 'RunnerTests' do
+              inherit! :search_paths
+            end
+          end
 
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    flutter_additional_ios_build_settings(target) if defined?(flutter_additional_ios_build_settings)
-    target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
-    end
-  end
-end
-EOF
+          post_install do |installer|
+            installer.pods_project.targets.each do |target|
+              flutter_additional_ios_build_settings(target) if defined?(flutter_additional_ios_build_settings)
+              target.build_configurations.each do |config|
+                config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+              end
+            end
+          end
+          EOF
 
       - name: Step 3 - Pod install
         script: |
