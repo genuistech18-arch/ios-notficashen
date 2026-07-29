@@ -1,0 +1,29 @@
+workflows:
+  ios-release:
+    name: iOS Release Build
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Get Flutter dependencies
+        script: |
+          cd mobile_app
+          flutter pub get
+      - name: Set iOS minimum deployment target to 15.0
+        script: |
+          sed -i '' 's/platform :ios, .*/platform :ios, '\''15.0'\''/' mobile_app/ios/Podfile || true
+          /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 15.0" mobile_app/ios/Flutter/AppFrameworkInfo.plist || true
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' mobile_app/ios/Runner.xcodeproj/project.pbxproj || true
+      - name: Pod install
+        script: |
+          cd mobile_app/ios
+          pod install --repo-update
+      - name: Build iOS
+        script: |
+          cd mobile_app
+          flutter build ios --release --no-codesign
+    artifacts:
+      - mobile_app/build/ios/iphoneos/Runner.app
+      - mobile_app/build/ios/**/*.ipa
