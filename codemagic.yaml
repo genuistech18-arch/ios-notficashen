@@ -11,6 +11,7 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.fatherpadg.app
+        create: true
 
     scripts:
       - name: Step 1 - Flutter pub get & Generate xcconfig
@@ -99,4 +100,4 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: false # يرفعه على متجر أبل في حسابك لتشاهده قبل التقديم للمراجعة النهائية
+        submit_to_testflight: false
