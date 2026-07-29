@@ -10,7 +10,7 @@ workflows:
       cocoapods: default
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.example.mobileApp
+        bundle_identifier: com.fatherpadg.app
 
     scripts:
       - name: Step 1 - Flutter pub get & Generate xcconfig

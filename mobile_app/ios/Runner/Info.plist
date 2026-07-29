@@ -49,7 +49,7 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.example.mobileApp.deeplink</string>
+			<string>com.fatherpadg.app.deeplink</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>myapp</string>
