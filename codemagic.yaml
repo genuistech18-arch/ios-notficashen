@@ -8,39 +8,65 @@ workflows:
       cocoapods: default
 
     scripts:
-      - name: Step 1 - Flutter pub get
+      - name: Step 1 - Flutter pub get & Generate xcconfig
         script: |
           cd mobile_app
           flutter pub get
+          flutter build ios-api-docs --release || flutter build ios --config-only || true
+          mkdir -p ios/Flutter
+          if [ ! -f ios/Flutter/Generated.xcconfig ]; then
+            echo "FLUTTER_ROOT=$(dirname $(dirname $(which flutter)))" > ios/Flutter/Generated.xcconfig
+            echo "FLUTTER_APPLICATION_PATH=$(pwd)" >> ios/Flutter/Generated.xcconfig
+            echo "FLUTTER_TARGET=lib/main.dart" >> ios/Flutter/Generated.xcconfig
+            echo "FLUTTER_BUILD_DIR=build" >> ios/Flutter/Generated.xcconfig
+            echo "SYMROOT=\$SOURCE_ROOT/../build/ios" >> ios/Flutter/Generated.xcconfig
+            echo "FLUTTER_BUILD_NAME=1.0.0" >> ios/Flutter/Generated.xcconfig
+            echo "FLUTTER_BUILD_NUMBER=15" >> ios/Flutter/Generated.xcconfig
+          fi
+          cat ios/Flutter/Generated.xcconfig
 
-      - name: Step 2 - Let Flutter migrate files (generates xcconfig and Podfile)
+      - name: Step 2 - Create iOS 15.0 Podfile and fix Deployment Target
         script: |
           cd mobile_app
-          # Run flutter build to generate Generated.xcconfig and upgrade Podfile
-          # This will fail due to iOS 13 vs 15 issue - that's OK, we continue
-          flutter build ios --release --no-codesign 2>&1 || true
+          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
+          /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 15.0" ios/Flutter/AppFrameworkInfo.plist || true
 
-      - name: Step 3 - Fix iOS deployment target
-        script: |
-          echo "=== Contents of ios/Flutter/ ==="
-          ls -la mobile_app/ios/Flutter/ || echo "Directory not found"
+          cat > ios/Podfile << 'EOF'
+platform :ios, '15.0'
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
-          echo "=== Fixing Podfile ==="
-          # Update platform to 15.0
-          sed -i '' "s/platform :ios, '[0-9.]*'/platform :ios, '15.0'/" mobile_app/ios/Podfile
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
 
-          # Add or replace post_install to force 15.0 on all pods
-          python3 - << 'PYEOF'
-import re
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. Make sure flutter pub get is executed first."
+  end
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}."
+end
 
-with open('mobile_app/ios/Podfile', 'r') as f:
-    content = f.read()
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
-# Remove existing post_install block
-content = re.sub(r'post_install do.*?^end\n', '', content, flags=re.DOTALL | re.MULTILINE)
+flutter_ios_podfile_setup
 
-# Add our post_install
-content += """
+target 'Runner' do
+  use_frameworks!
+  use_modular_headers!
+
+  flutter_install_all_ios_pods File.dirname(File.expand_path(__FILE__))
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target) if defined?(flutter_additional_ios_build_settings)
@@ -49,27 +75,14 @@ post_install do |installer|
     end
   end
 end
-"""
+EOF
 
-with open('mobile_app/ios/Podfile', 'w') as f:
-    f.write(content)
-
-print("Podfile updated successfully")
-PYEOF
-
-          echo "=== Fixing project.pbxproj ==="
-          sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' \
-            mobile_app/ios/Runner.xcodeproj/project.pbxproj
-
-          echo "=== Updated Podfile platform line ==="
-          grep "platform :ios" mobile_app/ios/Podfile
-
-      - name: Step 4 - Pod install with iOS 15.0
+      - name: Step 3 - Pod install
         script: |
           cd mobile_app/ios
           pod install --repo-update
 
-      - name: Step 5 - Final iOS build
+      - name: Step 4 - Final iOS build
         script: |
           cd mobile_app
           flutter build ios --release --no-codesign
