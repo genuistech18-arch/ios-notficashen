@@ -8,78 +8,70 @@ workflows:
       cocoapods: default
 
     scripts:
-      - name: Step 1 - Flutter pub get
+      - name: Step 1 - Flutter pub get (generates Generated.xcconfig)
         script: |
           cd mobile_app
           flutter pub get
 
-      - name: Step 2 - Fix iOS deployment target to 15.0
+      - name: Step 2 - Write correct Podfile with iOS 15.0
         script: |
-          # Fix project.pbxproj deployment target
+          cat > mobile_app/ios/Podfile << 'PODFILE_EOF'
+platform :ios, '15.0'
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. Make sure flutter pub get is executed first"
+  end
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}."
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  use_frameworks!
+  use_modular_headers!
+
+  flutter_install_all_ios_pods File.dirname(File.expand_path(__FILE__))
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+    end
+  end
+end
+PODFILE_EOF
+
+      - name: Step 3 - Fix deployment target in project.pbxproj
+        script: |
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' \
             mobile_app/ios/Runner.xcodeproj/project.pbxproj
 
-          # Fix AppFrameworkInfo.plist
-          /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 15.0" \
-            mobile_app/ios/Flutter/AppFrameworkInfo.plist || true
-
-          # Write clean Podfile
-          cat > mobile_app/ios/Podfile << 'PODFILE_EOF'
-          platform :ios, '15.0'
-          ENV['COCOAPODS_DISABLE_STATS'] = 'true'
-
-          project 'Runner', {
-            'Debug' => :debug,
-            'Profile' => :release,
-            'Release' => :release,
-          }
-
-          def flutter_root
-            generated_xcode_build_settings_path = File.expand_path(
-              File.join('..', 'Flutter', 'Generated.xcconfig'), File.dirname(__FILE__)
-            )
-            unless File.exist?(generated_xcode_build_settings_path)
-              raise "#{generated_xcode_build_settings_path} must exist."
-            end
-            File.foreach(generated_xcode_build_settings_path) do |line|
-              matches = line.match(/FLUTTER_ROOT\=(.*)/)
-              return matches[1].strip if matches
-            end
-            raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}."
-          end
-
-          require File.expand_path(
-            File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root
-          )
-
-          flutter_ios_podfile_setup
-
-          target 'Runner' do
-            use_frameworks!
-            use_modular_headers!
-
-            flutter_install_all_ios_pods File.dirname(File.expand_path(__FILE__))
-            target 'RunnerTests' do
-              inherit! :search_paths
-            end
-          end
-
-          post_install do |installer|
-            installer.pods_project.targets.each do |target|
-              flutter_additional_ios_build_settings(target)
-              target.build_configurations.each do |config|
-                config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
-              end
-            end
-          end
-          PODFILE_EOF
-
-      - name: Step 3 - Pod install
+      - name: Step 4 - Pod install
         script: |
           cd mobile_app/ios
           pod install --repo-update
 
-      - name: Step 4 - Build iOS (no codesign)
+      - name: Step 5 - Build iOS
         script: |
           cd mobile_app
           flutter build ios --release --no-codesign
