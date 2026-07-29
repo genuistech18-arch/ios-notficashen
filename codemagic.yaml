@@ -8,14 +8,11 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.fatherpadg.app
 
     scripts:
       - name: Step 1 - Fetch signing files from Apple and Create if missing
         script: |
-          app-store-connect fetch-signing-files $(app-store-connect get-bundle-id "com.fatherpadg.app") \
+          app-store-connect fetch-signing-files "com.fatherpadg.app" \
             --type IOS_APP_STORE \
             --create
           xcode-project use-profiles
