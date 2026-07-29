@@ -10,13 +10,7 @@ workflows:
       cocoapods: default
 
     scripts:
-      - name: Step 1 - Fetch signing files from Apple and Create if missing
-        script: |
-          app-store-connect fetch-signing-files "com.fatherpadg.app" \
-            --type IOS_APP_STORE \
-            --create
-          xcode-project use-profiles
-      - name: Step 2 - Flutter pub get & Generate xcconfig
+      - name: Step 1 - Flutter pub get & Generate xcconfig
         script: |
           cd mobile_app
           flutter pub get
@@ -32,7 +26,7 @@ workflows:
             echo "FLUTTER_BUILD_NUMBER=15" >> ios/Flutter/Generated.xcconfig
           fi
 
-      - name: Step 3 - Create iOS 15.0 Podfile and fix Deployment Target
+      - name: Step 2 - Create iOS 15.0 Podfile and fix Deployment Target
         script: |
           cd mobile_app
           sed -i '' 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 15.0/g' ios/Runner.xcodeproj/project.pbxproj
@@ -84,14 +78,19 @@ workflows:
           end
           EOF
 
-      - name: Step 4 - Pod install & Prepare Keychain
+      - name: Step 3 - Pod install
         script: |
           cd mobile_app/ios
           pod install --repo-update
-          xcode-project use-profiles
 
-      - name: Step 5 - Build signed iOS Application (IPA)
+      - name: Step 4 - Fetch Signing Certificates & Build Signed IPA
         script: |
+          app-store-connect fetch-signing-files "com.fatherpadg.app" \
+            --type IOS_APP_STORE \
+            --create
+
+          xcode-project use-profiles --project mobile_app/ios/Runner.xcodeproj
+
           cd mobile_app
           flutter build ipa --release --export-options-plist=$HOME/export_options.plist
 
