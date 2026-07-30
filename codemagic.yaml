@@ -83,24 +83,30 @@ workflows:
           cd mobile_app/ios
           pod install --repo-update
 
-      - name: Step 4 - Initialize Keychain and Fetch Signing Files
+      - name: Step 4 - Code Sign and Build IPA (ALL IN ONE)
         script: |
-          # Step A: Initialize the macOS keychain for code signing
+          set -e
+
+          echo "=== Step A: Initialize Keychain ==="
           keychain initialize
 
-          # Step B: Fetch signing files from Apple (create certificate + profile if missing)
+          echo "=== Step B: Generate fresh RSA private key ==="
+          openssl genrsa 2048 > $HOME/cert_key.pem
+          echo "Private key generated successfully"
+
+          echo "=== Step C: Fetch/Create signing files from Apple ==="
           app-store-connect fetch-signing-files "com.fatherpadg.app" \
             --type IOS_APP_STORE \
-            --create
+            --create \
+            --certificate-key=$HOME/cert_key.pem
 
-          # Step C: Add fetched certificates to the keychain
+          echo "=== Step D: Add certificates to keychain ==="
           keychain add-certificates
 
-          # Step D: Apply provisioning profiles to Xcode project
+          echo "=== Step E: Apply profiles to Xcode project ==="
           xcode-project use-profiles --project mobile_app/ios/Runner.xcodeproj
 
-      - name: Step 5 - Build signed iOS Application (IPA)
-        script: |
+          echo "=== Step F: Build IPA ==="
           cd mobile_app
           flutter build ipa --release --export-options-plist=$HOME/export_options.plist
 
