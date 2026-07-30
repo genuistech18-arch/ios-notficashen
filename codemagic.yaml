@@ -87,7 +87,9 @@ workflows:
         script: |
           app-store-connect fetch-signing-files "com.fatherpadg.app" \
             --type IOS_APP_STORE \
-            --create
+            --create \
+            --create-certificate \
+            --certificate-key=$HOME/private_key.p12 || app-store-connect fetch-signing-files "com.fatherpadg.app" --type IOS_APP_STORE --create
 
           xcode-project use-profiles --project mobile_app/ios/Runner.xcodeproj
 
