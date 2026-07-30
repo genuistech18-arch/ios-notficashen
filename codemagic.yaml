@@ -91,14 +91,14 @@ workflows:
           keychain initialize
 
           echo "=== Step B: Generate fresh RSA private key ==="
-          openssl genrsa 2048 > $HOME/cert_key.pem
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out $HOME/cert_key.pem 2>/dev/null
           echo "Private key generated successfully"
 
           echo "=== Step C: Fetch/Create signing files from Apple ==="
           app-store-connect fetch-signing-files "com.fatherpadg.app" \
             --type IOS_APP_STORE \
             --create \
-            --certificate-key=$HOME/cert_key.pem
+            --certificate-key="$(cat $HOME/cert_key.pem)"
 
           echo "=== Step D: Add certificates to keychain ==="
           keychain add-certificates
