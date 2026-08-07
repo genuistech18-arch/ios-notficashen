@@ -21,13 +21,18 @@ workflows:
             echo "FLUTTER_APPLICATION_PATH=$(pwd)" >> ios/Flutter/Generated.xcconfig
             echo "FLUTTER_TARGET=lib/main.dart" >> ios/Flutter/Generated.xcconfig
             echo "FLUTTER_BUILD_DIR=build" >> ios/Flutter/Generated.xcconfig
-            echo "SYMROOT=\$SOURCE_ROOT/../build/ios" >> ios/Flutter/Generated.xcconfig
-            VERSION_LINE=$(grep "version:" pubspec.yaml)
-            BUILD_NAME=$(echo $VERSION_LINE | cut -d' ' -f2 | cut -d'+' -f1)
-            BUILD_NUMBER=$(echo $VERSION_LINE | cut -d'+' -f2)
-            echo "FLUTTER_BUILD_NAME=$BUILD_NAME" >> ios/Flutter/Generated.xcconfig
-            echo "FLUTTER_BUILD_NUMBER=$BUILD_NUMBER" >> ios/Flutter/Generated.xcconfig
           fi
+          
+          # Always fetch latest version/build number from pubspec.yaml
+          VERSION_LINE=$(grep "version:" pubspec.yaml)
+          BUILD_NAME=$(echo $VERSION_LINE | cut -d' ' -f2 | cut -d'+' -f1)
+          BUILD_NUMBER=$(echo $VERSION_LINE | cut -d'+' -f2)
+
+          # Clean existing definitions and append the new ones to ensure they override Gradle/Xcode defaults
+          sed -i '' '/FLUTTER_BUILD_NAME/d' ios/Flutter/Generated.xcconfig 2>/dev/null || true
+          sed -i '' '/FLUTTER_BUILD_NUMBER/d' ios/Flutter/Generated.xcconfig 2>/dev/null || true
+          echo "FLUTTER_BUILD_NAME=$BUILD_NAME" >> ios/Flutter/Generated.xcconfig
+          echo "FLUTTER_BUILD_NUMBER=$BUILD_NUMBER" >> ios/Flutter/Generated.xcconfig
 
       - name: Step 2 - Create iOS 15.0 Podfile and fix Deployment Target
         script: |
