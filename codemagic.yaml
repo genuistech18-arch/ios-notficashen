@@ -116,7 +116,13 @@ workflows:
 
           echo "=== Step F: Build IPA ==="
           cd mobile_app
-          flutter build ipa --release --export-options-plist=$HOME/export_options.plist
+          VERSION_LINE=$(grep "version:" pubspec.yaml)
+          BUILD_NAME=$(echo $VERSION_LINE | cut -d' ' -f2 | cut -d'+' -f1)
+          BUILD_NUMBER=$(echo $VERSION_LINE | cut -d'+' -f2)
+          flutter build ipa --release \
+            --build-name=$BUILD_NAME \
+            --build-number=$BUILD_NUMBER \
+            --export-options-plist=$HOME/export_options.plist
 
     artifacts:
       - mobile_app/build/ios/ipa/*.ipa
